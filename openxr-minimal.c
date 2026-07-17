@@ -98,6 +98,12 @@ uint32_t * swapchainLengths;
 // For debugging.
 int printAll = 1;
 
+
+int gridSize = 8;
+#define gridSizeF ((float)gridSize)
+
+float dispSize = 0.17f;
+
 static int CheckResult( XrInstance instance, XrResult result, const char* str )
 {
 	if( XR_SUCCEEDED( result ))
@@ -212,7 +218,7 @@ int CreateInstance(XrInstance * instance)
 	ici.enabledExtensionNames = enabledExtensions;
 	ici.enabledApiLayerCount = 0;
 	ici.enabledApiLayerNames = NULL;
-	strcpy(ici.applicationInfo.applicationName, "openxr-minimal");
+	strcpy(ici.applicationInfo.applicationName, "vr-frameskip-tester");
 	ici.applicationInfo.engineName[0] = '\0';
 	ici.applicationInfo.applicationVersion = 1;
 	ici.applicationInfo.engineVersion = 0;
@@ -1015,6 +1021,9 @@ int RenderLayer(XrInstance instance, XrSession session, XrViewConfigurationView 
 
 	memset( projectionLayerViews, 0, sizeof( XrCompositionLayerProjectionView ) * viewCountOutput );
 
+	static int frame_count = 0;
+	frame_count++;
+
 	// Render view to the appropriate part of the swapchain image.
 	for (uint32_t i = 0; i < viewCountOutput; i++)
 	{
@@ -1061,9 +1070,55 @@ int RenderLayer(XrInstance instance, XrSession session, XrViewConfigurationView 
 
 		minXRglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
 
-		glClearColor(0.0f, 0.1f, 0.0f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClearDepth(1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+
+		glEnable(GL_SCISSOR_TEST);
+		float w = (float)layerView->subImage.imageRect.extent.width;
+		float h = (float)layerView->subImage.imageRect.extent.height;
+		int ox = layerView->subImage.imageRect.offset.x;
+		int oy = layerView->subImage.imageRect.offset.y;
+
+
+		float new_w = w * dispSize;
+		float new_h = h * dispSize;
+		int new_ox = ox + (int)((w - new_w) / 2.0f);
+		int new_oy = oy + (int)((h - new_h) / 2.0f);
+
+
+		for (int i = 0; i <= gridSize; i++) {
+			int x = (int)((new_w / gridSizeF) * i);
+			glScissor(new_ox + x, new_oy, 1, (int)new_h);
+			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+
+		for (int i = 0; i <= gridSize; i++) {
+			int y = (int)((new_h / gridSizeF) * i);
+			glScissor(new_ox, new_oy + y, (int)new_w, 1);
+			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+
+		int active_square = frame_count % (gridSize * gridSize);
+		int active_c = active_square % gridSize;
+		int active_r = (gridSize - 1) - (active_square / gridSize);
+
+		float sq_w = new_w / gridSizeF;
+		float sq_h = new_h / gridSizeF;
+		int sq_x = new_ox + (int)(sq_w * active_c) + 1;
+		int sq_y = new_oy + (int)(sq_h * active_r) + 1;
+		int sq_width = (int)sq_w - 2;
+		int sq_height = (int)sq_h - 2;
+
+		glScissor(sq_x, sq_y, sq_width, sq_height);
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glDisable(GL_SCISSOR_TEST);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 		// Render Pipeline copied from https://github.com/hyperlogic/openxrstub/blob/main/src/main.cpp
 
@@ -1199,8 +1254,14 @@ int RenderFrame(XrInstance instance, XrSession session, XrViewConfigurationView 
 	return 1;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+	if (argc >= 2) 
+		gridSize = strtol(argv[1], NULL, 10);
+
+	if (argc >= 3)
+		dispSize = 0.01f * strtof(argv[2], NULL);
+
 	if( ( numExtensions = EnumerateExtensions( &extensionProps ) ) == 0 ) return -1;
 	if( !ExtensionSupported( extensionProps, numExtensions, XR_KHR_OPENGL_ENABLE_EXTENSION_NAME ) )
 	{
@@ -1211,7 +1272,7 @@ int main()
 	if ( !GetSystemId( instance, &systemId ) ) return -1;
 	if ( ( numViewConfigs = EnumerateViewConfigs(instance, systemId, &viewConfigs ) ) == 0 ) return -1;
 
-	CNFGSetup( "Example App", 1024, 768 );
+	CNFGSetup( "vr-frameskip-tester", 1024, 768 );
 	EnumOpenGLExtensions();
 
 	if ( !CreateSession(instance, systemId, &session ) ) return -1;
