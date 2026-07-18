@@ -1084,21 +1084,23 @@ int RenderLayer(XrInstance instance, XrSession session, XrViewConfigurationView 
 
 		float new_w = w * dispSize;
 		float new_h = h * dispSize;
-		int new_ox = ox + (int)((w - new_w) / 2.0f);
-		int new_oy = oy + (int)((h - new_h) / 2.0f);
+		int new_ox = ox + (int)roundf((w - new_w) / 2.0f);
+		int new_oy = oy + (int)roundf((h - new_h) / 2.0f);
 
+		int cell_w = (int)roundf(new_w / gridSizeF);
+		int cell_h = (int)roundf(new_h / gridSizeF);
 
 		for (int i = 0; i <= gridSize; i++) {
-			int x = (int)((new_w / gridSizeF) * i);
-			glScissor(new_ox + x, new_oy, 1, (int)new_h);
-			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			int x = cell_w * i;
+			glScissor(new_ox + x, new_oy, 1, cell_h * gridSize);
+			glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT);
 		}
 
 		for (int i = 0; i <= gridSize; i++) {
-			int y = (int)((new_h / gridSizeF) * i);
-			glScissor(new_ox, new_oy + y, (int)new_w, 1);
-			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			int y = cell_h * i;
+			glScissor(new_ox, new_oy + y, cell_w * gridSize, 1);
+			glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT);
 		}
 
@@ -1106,12 +1108,10 @@ int RenderLayer(XrInstance instance, XrSession session, XrViewConfigurationView 
 		int active_c = active_square % gridSize;
 		int active_r = (gridSize - 1) - (active_square / gridSize);
 
-		float sq_w = new_w / gridSizeF;
-		float sq_h = new_h / gridSizeF;
-		int sq_x = new_ox + (int)(sq_w * active_c) + 1;
-		int sq_y = new_oy + (int)(sq_h * active_r) + 1;
-		int sq_width = (int)sq_w - 2;
-		int sq_height = (int)sq_h - 2;
+		int sq_x = new_ox + cell_w * active_c + 1;
+		int sq_y = new_oy + cell_h * active_r + 1;
+		int sq_width = cell_w - 1;
+		int sq_height = cell_h - 1;
 
 		glScissor(sq_x, sq_y, sq_width, sq_height);
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
